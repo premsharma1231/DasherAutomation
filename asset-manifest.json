@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/DasherAutomation/static/css/main.46525112.css",
+    "main.js": "/DasherAutomation/static/js/main.93c909c0.js",
+    "static/js/453.926c466e.chunk.js": "/DasherAutomation/static/js/453.926c466e.chunk.js",
+    "index.html": "/DasherAutomation/index.html",
+    "main.46525112.css.map": "/DasherAutomation/static/css/main.46525112.css.map",
+    "main.93c909c0.js.map": "/DasherAutomation/static/js/main.93c909c0.js.map",
+    "453.926c466e.chunk.js.map": "/DasherAutomation/static/js/453.926c466e.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.46525112.css",
+    "static/js/main.93c909c0.js"
+  ]
+}
