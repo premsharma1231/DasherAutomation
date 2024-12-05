@@ -129,69 +129,123 @@ function formatTime(time) {
   function compareHours() {
     const newHours = parseNewHours();
     const oldHours = parseOldHours();
-
+  
     if (!newHours.length || !oldHours.length) {
       setComparisonResult("Please provide valid data for both new and old hours.");
       return;
     }
-
-    const allSameHours = newHours.every((newHour, index) => {
-      const oldHour = oldHours[index];
-      return (
-        newHour.day === oldHour.day &&
-        newHour.openTime === oldHour.openTime &&
-        newHour.closeTime === oldHour.closeTime
-      );
-    });
-
-    if (allSameHours) {
-      setComparisonResult("No change in Hours.");
-      return;
-    }
-
-    const dayGroups = [
-      { label: "Mon-Sun", days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
-      { label: "Sun-Thu", days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] },
-      { label: "Fri-Sat", days: ["Friday", "Saturday"] },
-      { label: "Mon-Thu", days: ["Monday", "Tuesday", "Wednesday", "Thursday"] },
-      { label: "Mon", days: ["Monday"] },
-      { label: "Tue", days: ["Tuesday"] },
-      { label: "Wed", days: ["Wednesday"] },
-      { label: "Thu", days: ["Thursday"] },
-      { label: "Fri", days: ["Friday"] },
-      { label: "Sat", days: ["Saturday"] },
-      { label: "Sun", days: ["Sunday"] }
-    ];
-
+  
     const remarks = [];
-    const coveredGroups = new Set();
-
-    dayGroups.forEach(group => {
-      const groupNewHours = newHours.filter(hour => group.days.includes(hour.day));
-      const groupOldHours = oldHours.filter(hour => group.days.includes(hour.day));
-
-      if (groupNewHours.length && groupOldHours.length) {
-        const allSameOpen = groupNewHours.every((newHour, i) => newHour.openTime === groupOldHours[i]?.openTime);
-        const allSameClose = groupNewHours.every((newHour, i) => newHour.closeTime === groupOldHours[i]?.closeTime);
-
-        const openExtended = !allSameOpen && groupNewHours.some((newHour, i) => newHour.openTime < groupOldHours[i]?.openTime);
-        const closeExtended = !allSameClose && groupNewHours.some((newHour, i) => newHour.closeTime > groupOldHours[i]?.closeTime);
-
-        if (allSameOpen && allSameClose && !openExtended && !closeExtended) {
-          const groupRemarks = getRemark(openExtended, closeExtended, group.label, groupNewHours[0], groupOldHours[0], true);
-          remarks.push(...groupRemarks);
-        } else {
-          const firstNew = groupNewHours[0];
-          const firstOld = groupOldHours[0];
-          const groupRemarks = getRemark(openExtended, closeExtended, group.label, firstNew, firstOld);
-          remarks.push(...groupRemarks);
+  
+    // Iterate through all days in new and old hours
+    newHours.forEach((newHour, index) => {
+      const oldHour = oldHours.find((oh) => oh.day === newHour.day);
+      if (!oldHour) {
+        remarks.push(`No matching old hours found for ${newHour.day}.`);
+        return;
+      }
+  
+      // Compare open times
+      if (newHour.openTime !== oldHour.openTime) {
+        const openExtended = newHour.openTime < oldHour.openTime;
+        if (openExtended) {
+          remarks.push(
+            `Differing Hours (Not Changing): GMB shows that ${newHour.day} open time is ${newHour.openTime} (we have ${oldHour.openTime}). Not changing, as this would extend store hours.`
+          );
         }
-        coveredGroups.add(group.label);
+      }
+  
+      // Compare close times
+      if (newHour.closeTime !== oldHour.closeTime) {
+        const closeExtended = newHour.closeTime > oldHour.closeTime;
+        if (closeExtended) {
+          remarks.push(
+            `Differing Hours (Not Changing): GMB shows that ${newHour.day} end time is ${newHour.closeTime} (we have ${oldHour.closeTime}). Not changing, as this would extend store hours.`
+          );
+        }
+      }
+  
+      // Compare full-time hours (both open and close)
+      if (
+        newHour.openTime !== oldHour.openTime &&
+        newHour.closeTime !== oldHour.closeTime
+      ) {
+        remarks.push(
+          `Differing Hours (Not Changing): GMB shows that ${newHour.day} full time is ${newHour.openTime}–${newHour.closeTime} (we have ${oldHour.openTime}–${oldHour.closeTime}). Not changing, as this would extend store hours.`
+        );
       }
     });
-
+  
+    // Set the remarks as the comparison result
     setComparisonResult(remarks.join("\n\n"));
   }
+  
+  // function compareHours() {
+  //   const newHours = parseNewHours();
+  //   const oldHours = parseOldHours();
+
+  //   if (!newHours.length || !oldHours.length) {
+  //     setComparisonResult("Please provide valid data for both new and old hours.");
+  //     return;
+  //   }
+
+  //   const allSameHours = newHours.every((newHour, index) => {
+  //     const oldHour = oldHours[index];
+  //     return (
+  //       newHour.day === oldHour.day &&
+  //       newHour.openTime === oldHour.openTime &&
+  //       newHour.closeTime === oldHour.closeTime
+  //     );
+  //   });
+
+  //   if (allSameHours) {
+  //     setComparisonResult("No change in Hours.");
+  //     return;
+  //   }
+
+  //   const dayGroups = [
+  //     { label: "Mon-Sun", days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
+  //     { label: "Sun-Thu", days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] },
+  //     { label: "Fri-Sat", days: ["Friday", "Saturday"] },
+  //     { label: "Mon-Thu", days: ["Monday", "Tuesday", "Wednesday", "Thursday"] },
+  //     { label: "Mon", days: ["Monday"] },
+  //     { label: "Tue", days: ["Tuesday"] },
+  //     { label: "Wed", days: ["Wednesday"] },
+  //     { label: "Thu", days: ["Thursday"] },
+  //     { label: "Fri", days: ["Friday"] },
+  //     { label: "Sat", days: ["Saturday"] },
+  //     { label: "Sun", days: ["Sunday"] }
+  //   ];
+
+  //   const remarks = [];
+  //   const coveredGroups = new Set();
+
+  //   dayGroups.forEach(group => {
+  //     const groupNewHours = newHours.filter(hour => group.days.includes(hour.day));
+  //     const groupOldHours = oldHours.filter(hour => group.days.includes(hour.day));
+
+  //     if (groupNewHours.length && groupOldHours.length) {
+  //       const allSameOpen = groupNewHours.every((newHour, i) => newHour.openTime === groupOldHours[i]?.openTime);
+  //       const allSameClose = groupNewHours.every((newHour, i) => newHour.closeTime === groupOldHours[i]?.closeTime);
+
+  //       const openExtended = !allSameOpen && groupNewHours.some((newHour, i) => newHour.openTime < groupOldHours[i]?.openTime);
+  //       const closeExtended = !allSameClose && groupNewHours.some((newHour, i) => newHour.closeTime > groupOldHours[i]?.closeTime);
+
+  //       if (allSameOpen && allSameClose && !openExtended && !closeExtended) {
+  //         const groupRemarks = getRemark(openExtended, closeExtended, group.label, groupNewHours[0], groupOldHours[0], true);
+  //         remarks.push(...groupRemarks);
+  //       } else {
+  //         const firstNew = groupNewHours[0];
+  //         const firstOld = groupOldHours[0];
+  //         const groupRemarks = getRemark(openExtended, closeExtended, group.label, firstNew, firstOld);
+  //         remarks.push(...groupRemarks);
+  //       }
+  //       coveredGroups.add(group.label);
+  //     }
+  //   });
+
+  //   setComparisonResult(remarks.join("\n\n"));
+  // }
 
 
   return (
