@@ -16,22 +16,16 @@ function TextArea() {
     setOldHoursText(e.target.value);
   }
 
-  // Helper: Format time to 12-hour format
-function formatTime(time) {
+  // Helper: Format time to 24-hour format
+  function formatTime(time) {
     try {
-      const [hour, minute] = time
-        .replace(/[^\d:]/g, "") // Remove non-numeric/non-colon characters
-        .split(":")
-        .map(Number);
+      const [timePart, period] = time.trim().split(/\s?(am|pm)$/i); // Split by AM/PM
+      let [hours, minutes] = timePart.split(":").map(Number);
 
-      const date = new Date();
-      date.setHours(hour, minute || 0);
+      if (period === "pm" && hours < 12) hours += 12;  // Convert PM hours to 24-hour format
+      if (period === "am" && hours === 12) hours = 0;  // Handle 12 AM case
 
-      return new Intl.DateTimeFormat("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }).format(date);
+      return new Date(2000, 0, 1, hours, minutes).getTime(); // Return time in milliseconds
     } catch (error) {
       console.error("Error formatting time:", time);
       return time; // Return original time if formatting fails
@@ -45,21 +39,15 @@ function formatTime(time) {
       return [];
     }
 
-    const formattedHours = newHoursText
-      .trim()
-      .split("\n")
-      .map(line => {
-        const [day, times] = line.split(/\s(.+)/); // Split into day and time
-        const [openTime, closeTime] = times.split("–"); // Split time into open and close
-        return {
-          day: day.trim(),
-          openTime: formatTime(openTime.trim()),
-          closeTime: formatTime(closeTime.trim()),
-        };
-      });
-
-    console.log(formattedHours);
-    return formattedHours;
+    return newHoursText.trim().split("\n").map((line) => {
+      const [day, times] = line.split(/\s(.+)/);
+      const [openTime, closeTime] = times.split("–");
+      return {
+        day: day.trim(),
+        openTime: formatTime(openTime.trim()),
+        closeTime: formatTime(closeTime.trim()),
+      };
+    });
   }
 
   // Parse old hours format
@@ -70,12 +58,11 @@ function formatTime(time) {
     }
 
     const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
     const expandWeekdayRange = (range) => {
       if (range.includes("Weekday")) return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
       if (range.includes("weekend")) return ["Saturday", "Sunday"];
       if (range.includes("All Days")) return daysOfWeek;
-      return range.split(", ").map(day => day.trim());
+      return range.split(", ").map((day) => day.trim());
     };
 
     const lines = oldHoursText.trim().split("\n");
@@ -84,179 +71,56 @@ function formatTime(time) {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-
       if (line.match(/(Weekday|All Days|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i)) {
         currentDays = expandWeekdayRange(line);
       } else if (line.match(/\d{1,2}:\d{2}(am|pm)/i)) {
         const openTime = formatTime(line);
-        const closeTime = formatTime(lines[++i].trim()); // Next line is the closing time
-        currentDays.forEach(day => {
+        const closeTime = formatTime(lines[++i].trim());
+        currentDays.forEach((day) => {
           results.push({ day, openTime, closeTime });
         });
       }
     }
-
-    console.log(results);
     return results;
   }
 
-  // Remaining code (compareHours, rendering, etc.) remains the same...}
-  // Helper: Generate remark
-  function getRemark(openExtended, closeExtended, rangeLabel, newHour, oldHour, noChange = false) {
-    let remarks = [];
-
-    if (noChange) {
-      remarks.push(`${rangeLabel} - No Change in Hours.`);
-      return remarks;
-    }
-
-    if (openExtended) {
-      remarks.push(
-        `Differing Hours (Not Changing): GMB shows that ${rangeLabel} open time is ${newHour.openTime} (we have ${oldHour.openTime}). Not changing, as this would extend store hours.`
-      );
-    }
-
-    if (closeExtended) {
-      remarks.push(
-        `Differing Hours (Not Changing): GMB shows that ${rangeLabel} end time is ${newHour.closeTime} (we have ${oldHour.closeTime}). Not changing, as this would extend store hours.`
-      );
-    }
-
-    return remarks;
-  }
-
   // Compare New and Old Hours
-  function compareHours() {
+  function compareTimes() {
     const newHours = parseNewHours();
     const oldHours = parseOldHours();
-  
-    if (!newHours.length || !oldHours.length) {
-      setComparisonResult("Please provide valid data for both new and old hours.");
-      return;
-    }
-  
-    const remarks = [];
-  
-    // Iterate through all days in new and old hours
-    newHours.forEach((newHour, index) => {
-      const oldHour = oldHours.find((oh) => oh.day === newHour.day);
-      if (!oldHour) {
-        remarks.push(`No matching old hours found for ${newHour.day}.`);
-        return;
-      }
-  
-      // Compare open times
-      if (newHour.openTime !== oldHour.openTime) {
-        const openExtended = newHour.openTime < oldHour.openTime;
-        if (openExtended) {
-          remarks.push(
-            `Differing Hours (Not Changing): GMB shows that ${newHour.day} open time is ${newHour.openTime} (we have ${oldHour.openTime}). Not changing, as this would extend store hours.`
-          );
+    console.log(newHours);
+    console.log(oldHours);
+
+    let remarks = [];
+
+    newHours.forEach((aDay) => {
+      const bDay = oldHours.find((b) => b.day === aDay.day);
+      if (bDay) {
+        const openTimeExtending = bDay.openTime < aDay.openTime;
+        const closeTimeExtending = bDay.closeTime > aDay.closeTime;
+        const openTimeReducing = bDay.openTime > aDay.openTime;
+        const closeTimeReducing = bDay.closeTime < aDay.closeTime;
+
+        if (openTimeExtending && closeTimeExtending) {
+          remarks.push(`${aDay.day} full time is extending. New full time: ${aDay.openTime} - ${aDay.closeTime} (old full time: ${bDay.openTime} - ${bDay.closeTime}).`);
+        } else if (openTimeExtending && closeTimeReducing) {
+          remarks.push(`${aDay.day} open time is extending. New open time: ${aDay.openTime} (old open time: ${bDay.openTime}).`);
+        } else if (openTimeReducing && closeTimeExtending) {
+          remarks.push(`${aDay.day} end time is extending. New end time: ${aDay.closeTime} (old end time: ${bDay.closeTime}).`);
+        } else if (openTimeReducing && closeTimeReducing) {
+          remarks.push(`${aDay.day} full time is reducing. New full time: ${aDay.openTime} - ${aDay.closeTime} (old full time: ${bDay.openTime} - ${bDay.closeTime}).`);
+        } else {
+          remarks.push(`${aDay.day} timings are unchanged.`);
         }
-      }
-  
-      // Compare close times
-      if (newHour.closeTime !== oldHour.closeTime) {
-        const closeExtended = newHour.closeTime > oldHour.closeTime;
-        if (closeExtended) {
-          remarks.push(
-            `Differing Hours (Not Changing): GMB shows that ${newHour.day} end time is ${newHour.closeTime} (we have ${oldHour.closeTime}). Not changing, as this would extend store hours.`
-          );
-        }
-      }
-  
-      // Compare full-time hours (both open and close)
-      if (
-        newHour.openTime !== oldHour.openTime &&
-        newHour.closeTime !== oldHour.closeTime
-      ) {
-        remarks.push(
-          `Differing Hours (Not Changing): GMB shows that ${newHour.day} full time is ${newHour.openTime}–${newHour.closeTime} (we have ${oldHour.openTime}–${oldHour.closeTime}). Not changing, as this would extend store hours.`
-        );
       }
     });
-  
-    // Set the remarks as the comparison result
-    setComparisonResult(remarks.join("\n\n"));
+
+    setComparisonResult(remarks.length > 0 ? remarks.join(" ") : "No changes detected for the week.");
   }
-  
-  // function compareHours() {
-  //   const newHours = parseNewHours();
-  //   const oldHours = parseOldHours();
-
-  //   if (!newHours.length || !oldHours.length) {
-  //     setComparisonResult("Please provide valid data for both new and old hours.");
-  //     return;
-  //   }
-
-  //   const allSameHours = newHours.every((newHour, index) => {
-  //     const oldHour = oldHours[index];
-  //     return (
-  //       newHour.day === oldHour.day &&
-  //       newHour.openTime === oldHour.openTime &&
-  //       newHour.closeTime === oldHour.closeTime
-  //     );
-  //   });
-
-  //   if (allSameHours) {
-  //     setComparisonResult("No change in Hours.");
-  //     return;
-  //   }
-
-  //   const dayGroups = [
-  //     { label: "Mon-Sun", days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
-  //     { label: "Sun-Thu", days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] },
-  //     { label: "Fri-Sat", days: ["Friday", "Saturday"] },
-  //     { label: "Mon-Thu", days: ["Monday", "Tuesday", "Wednesday", "Thursday"] },
-  //     { label: "Mon", days: ["Monday"] },
-  //     { label: "Tue", days: ["Tuesday"] },
-  //     { label: "Wed", days: ["Wednesday"] },
-  //     { label: "Thu", days: ["Thursday"] },
-  //     { label: "Fri", days: ["Friday"] },
-  //     { label: "Sat", days: ["Saturday"] },
-  //     { label: "Sun", days: ["Sunday"] }
-  //   ];
-
-  //   const remarks = [];
-  //   const coveredGroups = new Set();
-
-  //   dayGroups.forEach(group => {
-  //     const groupNewHours = newHours.filter(hour => group.days.includes(hour.day));
-  //     const groupOldHours = oldHours.filter(hour => group.days.includes(hour.day));
-
-  //     if (groupNewHours.length && groupOldHours.length) {
-  //       const allSameOpen = groupNewHours.every((newHour, i) => newHour.openTime === groupOldHours[i]?.openTime);
-  //       const allSameClose = groupNewHours.every((newHour, i) => newHour.closeTime === groupOldHours[i]?.closeTime);
-
-  //       const openExtended = !allSameOpen && groupNewHours.some((newHour, i) => newHour.openTime < groupOldHours[i]?.openTime);
-  //       const closeExtended = !allSameClose && groupNewHours.some((newHour, i) => newHour.closeTime > groupOldHours[i]?.closeTime);
-
-  //       if (allSameOpen && allSameClose && !openExtended && !closeExtended) {
-  //         const groupRemarks = getRemark(openExtended, closeExtended, group.label, groupNewHours[0], groupOldHours[0], true);
-  //         remarks.push(...groupRemarks);
-  //       } else {
-  //         const firstNew = groupNewHours[0];
-  //         const firstOld = groupOldHours[0];
-  //         const groupRemarks = getRemark(openExtended, closeExtended, group.label, firstNew, firstOld);
-  //         remarks.push(...groupRemarks);
-  //       }
-  //       coveredGroups.add(group.label);
-  //     }
-  //   });
-
-  //   setComparisonResult(remarks.join("\n\n"));
-  // }
-
 
   return (
-    <>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-around",
-          alignContent: "center",
-        }}
-      >
+    <div className="container">
+      <div className="inputs">
         <div>
           <h2>New Hours</h2>
           <textarea
@@ -278,25 +142,15 @@ function formatTime(time) {
             rows={10}
           ></textarea>
         </div>
+      </div>
 
-        <div>
-          <button
-            style={{
-              height: "160px",
-              width: "200px",
-              marginTop: "70px",
-              marginRight: "100px",
-            }}
-            onClick={compareHours}
-          >
-            Compare Hours
-          </button>
-        </div>
+      <div className="button-container">
+        <button onClick={compareTimes}>Compare Hours</button>
       </div>
 
       <h2>Result</h2>
       <pre>{comparisonResult}</pre>
-    </>
+    </div>
   );
 }
 
